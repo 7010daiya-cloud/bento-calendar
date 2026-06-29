@@ -356,8 +356,8 @@ function renderCalendar(){
       const rec=ord[d]||{n:0,d:0,s:""};
       cell.appendChild(qInput("並",rec.n,d,"n"));
       cell.appendChild(qInput("大",rec.d,d,"d"));
+      // スタッフ名は「社内用」のときだけ表示（弁当屋用・共有リンクには出さない）
       if(view==="in"&&!readonly)cell.appendChild(staffPick(rec.s,d));
-      else if(rec.s){const sp=staffView(rec.s);cell.appendChild(sp);}
     }
     grid.appendChild(cell);
   }
@@ -392,10 +392,6 @@ function staffPick(val,day){
     sel.className=(sel.value?"staff set ":"staff ")+staffClass(sel.value);
   });
   return sel;
-}
-function staffView(s){
-  const el=document.createElement("div");
-  el.className="staff set "+staffClass(s);el.textContent=s;return el;
 }
 function renderTotals(){
   const ord=order();let n=0,d=0;
