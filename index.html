@@ -30,6 +30,7 @@
   header.bar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.5px;flex:1}
   header.bar .ico{font-size:20px}
   .syncdot{font-size:11px;color:#bfe3c7;white-space:nowrap;margin-right:2px}
+  #printHead{display:none}
   .gear{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;
     padding:8px 11px;font-size:14px;cursor:pointer}
   .gear:active{background:rgba(255,255,255,.3)}
@@ -159,14 +160,35 @@
     .actions .btn{min-width:calc(50% - 5px);padding:14px}
   }
 
-  /* 印刷 */
+  /* 印刷（A4横・1ページ・画面の色をそのまま） */
   @media print{
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    @page{size:A4 landscape;margin:6mm}
     body{background:#fff}
-    header.bar,.controls,.actions,.gear,.modal{display:none!important}
+    /* 操作系・説明文は印刷しない */
+    header.bar,.controls,.actions,.gear,.modal,.note,#roBadge{display:none!important}
     .app{max-width:none;padding:0}
-    .cal{box-shadow:none;border:1px solid #ccc}
-    .totals .tcard{border:1px solid #ddd;box-shadow:none}
-    @page{size:A4 landscape;margin:8mm}
+    /* 月の見出し */
+    #printHead{display:block;text-align:center;font-weight:800;color:#1f3a55;
+      font-size:15px;margin:0 0 6px}
+    /* 画面幅に関係なくカレンダー配置を固定（スマホからでも横グリッド） */
+    #dowRow{display:grid!important}
+    .grid{grid-template-columns:repeat(7,1fr)!important;gap:3px!important}
+    .dow{font-size:9px;padding:2px 0}
+    .cell{flex-flow:column!important;min-height:0!important;padding:3px!important;
+      gap:2px!important;box-shadow:none!important;border:1px solid #c9d3dc!important;
+      break-inside:avoid;page-break-inside:avoid}
+    .cell.empty{display:block!important;border:none!important;background:transparent!important}
+    .cell .dnum{flex:none!important;font-size:9px}
+    .qrow .tag{width:14px;font-size:8px}
+    .qrow input{width:100%!important;font-size:11px!important;padding:1px 0!important;
+      border-color:#ccc!important;font-weight:700}
+    .staff{font-size:9px!important;padding:2px!important;flex:none!important;border-style:solid!important}
+    .totals{gap:5px;margin-bottom:6px}
+    .totals .tcard{border:1px solid #ddd;box-shadow:none;padding:4px 8px;flex:1}
+    .tcard .lbl{font-size:9px}
+    .tcard .val{font-size:15px}
+    .cal{box-shadow:none;border:none;padding:0;background:transparent}
   }
 </style>
 </head>
@@ -198,6 +220,8 @@
       </div>
     </div>
   </div>
+
+  <div id="printHead"></div>
 
   <div id="roBadge" style="display:none"><span class="badge" id="roBadgeText">弁当屋用（共有された注文）</span></div>
 
@@ -362,6 +386,12 @@ function renderCalendar(){
     grid.appendChild(cell);
   }
   renderTotals();
+  // 印刷用の見出し
+  const ph=document.getElementById("printHead");
+  if(ph){
+    const v=(readonly||view==="out")?"弁当屋用":"社内用";
+    ph.textContent=`${year}年${month}月　お弁当注文カレンダー（${v}）　発注先：${curShopName()}`;
+  }
 }
 function qInput(tag,val,day,field){
   const row=document.createElement("div");row.className="qrow";
