@@ -29,6 +29,7 @@
     display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
   header.bar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.5px;flex:1}
   header.bar .ico{font-size:20px}
+  .syncdot{font-size:11px;color:#bfe3c7;white-space:nowrap;margin-right:2px}
   .gear{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;
     padding:8px 11px;font-size:14px;cursor:pointer}
   .gear:active{background:rgba(255,255,255,.3)}
@@ -174,6 +175,7 @@
   <header class="bar">
     <span class="ico">🍱</span>
     <h1>お弁当注文カレンダー</h1>
+    <span id="syncDot" class="syncdot" title="クラウド同期の状態">…</span>
     <button class="gear" id="btnShops">⚙ 価格マスタ</button>
   </header>
 
@@ -265,7 +267,23 @@ const KEY="bento.data.v1";
 const defaultData=()=>({shops:[{name:"A弁当屋",nami:450,dai:550},{name:"B弁当屋",nami:480,dai:580}],orders:{}});
 let data=load();
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.shops)return d;}catch(e){}return defaultData();}
-function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+function saveLocal(){localStorage.setItem(KEY,JSON.stringify(data));}
+function save(){saveLocal();if(!readonly&&window.cloudPush)window.cloudPush(data);}
+
+/* クラウド連携の橋渡し（Firebaseモジュールから呼ばれる） */
+let pendingRender=false;
+window.getLocalData=()=>data;
+window.applyRemote=function(remote){
+  if(readonly)return;
+  if(JSON.stringify(remote)===JSON.stringify(data))return; // 自分の変更のエコーは無視
+  data=remote;saveLocal();
+  const ae=document.activeElement;
+  if(ae&&ae.tagName==="INPUT"&&ae.closest(".cal")){pendingRender=true;return;} // 入力中は再描画を保留
+  renderShopSelect();renderCalendar();
+};
+document.addEventListener("focusout",()=>{
+  if(pendingRender){pendingRender=false;renderShopSelect();renderCalendar();}
+});
 
 /* 状態 */
 let cur=new Date();
@@ -416,6 +434,7 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 
 function applyReadonlyUI(){
   document.getElementById("btnShops").style.display="none";
+  document.getElementById("syncDot").style.display="none";
   document.querySelector(".controls").style.display="none";
   document.getElementById("btnShare").style.display="none";
   document.getElementById("btnExport").style.display="none";
@@ -481,6 +500,59 @@ function init(){
   renderMonthLabel();renderDow();renderShopSelect();renderCalendar();
 }
 init();
+</script>
+
+<!-- ===== Firebase クラウド同期 ===== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAHI-gKImvZfLjyFGYvEvdv8TxL_Nrx2w0",
+  authDomain: "bento-daiya.firebaseapp.com",
+  projectId: "bento-daiya",
+  storageBucket: "bento-daiya.firebasestorage.app",
+  messagingSenderId: "957563483571",
+  appId: "1:957563483571:web:1fdda97b0fa744473dc7c6"
+};
+
+const dot=(txt,color)=>{const el=document.getElementById("syncDot");if(el){el.textContent=txt;el.style.color=color;}};
+
+// 共有リンク（閲覧専用）はクラウド同期しない
+if(location.hash.startsWith("#s=")){
+  dot("","");
+}else{
+  try{
+    const app=initializeApp(firebaseConfig);
+    const db=getFirestore(app);
+    const ref=doc(db,"bento","main");
+    let first=true, timer=null;
+
+    // ローカル → クラウド（400msデバウンス）
+    window.cloudPush=(d)=>{
+      clearTimeout(timer);
+      timer=setTimeout(async()=>{
+        try{ await setDoc(ref,{json:JSON.stringify(d),ts:Date.now()}); }
+        catch(e){ dot("⚠ 同期エラー","#ffb3b3"); }
+      },400);
+    };
+
+    // クラウド → ローカル（リアルタイム購読）
+    onSnapshot(ref,(snap)=>{
+      dot(snap.metadata.fromCache?"○ オフライン":"☁ 同期中",
+          snap.metadata.fromCache?"#cdd6e0":"#bfe3c7");
+      if(!snap.exists()){
+        if(first){first=false;window.cloudPush(window.getLocalData());} // 初回・クラウド空→今のデータをアップ
+        return;
+      }
+      first=false;
+      let remote=null;
+      try{ remote=JSON.parse(snap.data().json); }catch(e){ return; }
+      window.applyRemote(remote);
+    },(err)=>{ dot("⚠ 接続不可","#ffb3b3"); });
+  }catch(e){ dot("⚠","#ffb3b3"); }
+}
 </script>
 </body>
 </html>
