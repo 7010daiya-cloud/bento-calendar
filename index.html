@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2B4C6F">
+<title>お弁当注文カレンダー</title>
+<style>
+  :root{
+    --navy:#2B4C6F; --navy-d:#1f3a55; --band:#EAF2F8; --line:#d4dde6;
+    --sun-bg:#FBE4E4; --sun:#C0392B; --sat-bg:#E4ECFB; --sat:#2C6FBF;
+    --hol-bg:#ECECEC; --hol:#9AA0A6; --bd:#F5F8FB;
+    --money-bg:#FFF6DA; --money:#8A6D00;
+    --akane-bg:#FAD4DE; --akane:#A0335C;
+    --yui-bg:#FBE3C4; --yui:#9A5A00;
+    --both-bg:#D6EBD6; --both:#2E7D32;
+    --ok:#2e7d32; --bg:#f4f6f9; --card:#fff; --text:#243240; --muted:#7a8696;
+    --radius:14px; --shadow:0 2px 10px rgba(30,50,80,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Meiryo UI","Hiragino Sans","Yu Gothic UI",sans-serif;
+    background:var(--bg);color:var(--text);-webkit-text-size-adjust:100%;}
+  .app{max-width:1100px;margin:0 auto;padding:0 12px 80px;}
+
+  /* ヘッダー */
+  header.bar{position:sticky;top:0;z-index:20;background:var(--navy);
+    color:#fff;margin:0 -12px 12px;padding:12px 16px;
+    display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
+  header.bar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.5px;flex:1}
+  header.bar .ico{font-size:20px}
+  .gear{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;
+    padding:8px 11px;font-size:14px;cursor:pointer}
+  .gear:active{background:rgba(255,255,255,.3)}
+
+  /* コントロール */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin-bottom:12px}
+  .ctl{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:10px 12px;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  .ctl label{font-size:11px;color:var(--muted);display:block;margin-bottom:2px}
+  .month-nav{gap:4px}
+  .month-nav button{width:38px;height:38px;border:1px solid var(--line);background:#fff;
+    border-radius:10px;font-size:18px;cursor:pointer;color:var(--navy);flex:none}
+  .month-nav button:active{background:var(--band)}
+  .month-label{flex:1;text-align:center;font-size:17px;font-weight:700;color:var(--navy)}
+  select{font-family:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:10px;background:#fff;color:var(--text);width:100%}
+  .seg{display:flex;background:var(--band);border-radius:10px;padding:3px;flex:none}
+  .seg button{border:none;background:none;padding:8px 14px;border-radius:8px;font-size:13px;
+    cursor:pointer;color:var(--navy);font-weight:600}
+  .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+  /* 合計カード */
+  .totals{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  .tcard{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:10px 14px;flex:1;min-width:84px;text-align:center}
+  .tcard .lbl{font-size:11px;color:var(--muted)}
+  .tcard .val{font-size:22px;font-weight:800;color:var(--navy);line-height:1.2}
+  .tcard.money{background:var(--money-bg)}
+  .tcard.money .val{color:var(--money);font-size:20px}
+
+  /* カレンダー */
+  .cal{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:10px;overflow:hidden}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .dow{text-align:center;font-weight:700;font-size:12px;padding:6px 0;border-radius:8px;
+    background:#f2f4f6;color:#444}
+  .dow.s0{background:var(--sun-bg);color:var(--sun)} .dow.s6{background:var(--sat-bg);color:var(--sat)}
+  .cell{border:1px solid var(--line);border-radius:10px;min-height:64px;padding:5px;
+    display:flex;flex-direction:column;gap:4px;background:var(--bd)}
+  .cell.empty{border:none;background:transparent}
+  .cell.off{background:var(--hol-bg);color:var(--hol)}
+  .cell .dnum{font-size:12px;font-weight:700}
+  .cell.sun .dnum{color:var(--sun)} .cell.sat .dnum{color:var(--sat)} .cell.off .dnum{color:var(--hol)}
+  .qrow{display:flex;align-items:center;gap:4px}
+  .qrow .tag{font-size:11px;font-weight:700;color:#667;width:16px;flex:none;text-align:center}
+  .qrow input{width:100%;font-size:15px;text-align:center;border:1px solid var(--line);
+    border-radius:8px;padding:5px 2px;font-family:inherit;background:#fff;-moz-appearance:textfield}
+  .qrow input::-webkit-outer-spin-button,.qrow input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .staff{font-size:12px;border:1px dashed var(--line);border-radius:8px;padding:4px;background:#fff;
+    text-align:center;color:var(--muted)}
+  .staff.set{border-style:solid}
+  .staff.akane{background:var(--akane-bg);color:var(--akane);border-color:var(--akane)}
+  .staff.yui{background:var(--yui-bg);color:var(--yui);border-color:var(--yui)}
+  .staff.both{background:var(--both-bg);color:var(--both);border-color:var(--both)}
+  .cell.ro .qrow input{border:none;background:transparent;font-weight:800;font-size:18px;pointer-events:none}
+
+  /* メニュー（弁当屋用の見せ方） */
+  .badge{display:inline-block;background:var(--band);color:var(--navy);border-radius:20px;
+    padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
+
+  /* ボタン群 */
+  .actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  .btn{flex:1;min-width:130px;border:none;border-radius:12px;padding:13px;font-size:14px;
+    font-weight:700;cursor:pointer;font-family:inherit}
+  .btn.primary{background:var(--navy);color:#fff}
+  .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+  .btn:active{transform:translateY(1px)}
+
+  /* モーダル */
+  .modal{position:fixed;inset:0;background:rgba(20,30,45,.5);display:none;z-index:50;
+    align-items:flex-end;justify-content:center}
+  .modal.open{display:flex}
+  .sheet{background:#fff;width:100%;max-width:560px;border-radius:18px 18px 0 0;
+    max-height:88vh;overflow:auto;padding:18px}
+  @media(min-width:560px){.modal{align-items:center}.sheet{border-radius:18px}}
+  .sheet h2{margin:0 0 4px;font-size:18px;color:var(--navy)}
+  .sheet p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+  .shop-row{display:grid;grid-template-columns:1fr 80px 80px 34px;gap:8px;margin-bottom:8px;align-items:center}
+  .shop-row.head{font-size:11px;color:var(--muted);font-weight:700}
+  .shop-row input{font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;
+    font-family:inherit;width:100%}
+  .shop-row .del{background:#fff0f0;color:#c0392b;border:1px solid #f3c0c0;border-radius:8px;
+    height:36px;cursor:pointer;font-size:16px}
+  .addshop{margin-top:6px;background:var(--band);color:var(--navy);border:1px dashed #aac3da;
+    border-radius:10px;padding:10px;width:100%;cursor:pointer;font-weight:700}
+  .modal .close{float:right;border:none;background:#eef2f6;border-radius:10px;width:34px;height:34px;
+    font-size:18px;cursor:pointer;color:#667}
+  .note{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#243240;color:#fff;
+    padding:10px 18px;border-radius:24px;font-size:13px;opacity:0;transition:.3s;z-index:99;pointer-events:none}
+  .toast.show{opacity:1}
+
+  /* 印刷 */
+  @media print{
+    body{background:#fff}
+    header.bar,.controls,.actions,.gear,.modal{display:none!important}
+    .app{max-width:none;padding:0}
+    .cal{box-shadow:none;border:1px solid #ccc}
+    .totals .tcard{border:1px solid #ddd;box-shadow:none}
+    @page{size:A4 landscape;margin:8mm}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="ico">🍱</span>
+    <h1>お弁当注文カレンダー</h1>
+    <button class="gear" id="btnShops">⚙ 価格マスタ</button>
+  </header>
+
+  <div class="controls">
+    <div class="ctl month-nav">
+      <button id="prevM">‹</button>
+      <div class="month-label" id="monthLabel">—</div>
+      <button id="nextM">›</button>
+    </div>
+    <div class="ctl">
+      <div style="flex:1">
+        <label>発注先（弁当屋）</label>
+        <select id="shopSel"></select>
+      </div>
+    </div>
+    <div class="ctl" style="flex:none;justify-content:center">
+      <div class="seg" id="viewSeg">
+        <button data-v="in" class="on">社内用</button>
+        <button data-v="out">弁当屋用</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="roBadge" style="display:none"><span class="badge" id="roBadgeText">弁当屋用（共有された注文）</span></div>
+
+  <div class="totals">
+    <div class="tcard"><div class="lbl">並 合計</div><div class="val" id="tNami">0</div></div>
+    <div class="tcard"><div class="lbl">大 合計</div><div class="val" id="tDai">0</div></div>
+    <div class="tcard"><div class="lbl">個数 計</div><div class="val" id="tQty">0</div></div>
+    <div class="tcard money" id="moneyCard"><div class="lbl">発注金額</div><div class="val" id="tMoney">¥0</div></div>
+  </div>
+
+  <div class="cal">
+    <div class="grid" id="dowRow"></div>
+    <div class="grid" id="calGrid" style="margin-top:6px"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" id="btnShare">📤 弁当屋へ共有リンク</button>
+    <button class="btn ghost" id="btnPrint">🖨 印刷</button>
+    <button class="btn ghost" id="btnExport">💾 バックアップ保存</button>
+    <button class="btn ghost" id="btnImport">📂 バックアップ読込</button>
+    <input type="file" id="fileImport" accept="application/json" style="display:none">
+  </div>
+
+  <p class="note" id="footNote">
+    入力した内容はこの端末（ブラウザ）に自動保存されます。別の端末でも使いたいときは「バックアップ保存」でファイルを書き出し、相手側で「読込」してください。<br>
+    弁当屋さんへは「共有リンク」を送れば、相手はその月の注文をそのまま見られます（編集不可）。
+  </p>
+</div>
+
+<!-- 価格マスタ モーダル -->
+<div class="modal" id="shopModal">
+  <div class="sheet">
+    <button class="close" id="closeShops">×</button>
+    <h2>価格マスタ</h2>
+    <p class="sub">弁当屋ごとに「並」「大」の単価を登録します。発注金額の自動計算に使われます。</p>
+    <div class="shop-row head"><div>弁当屋名</div><div>並 単価</div><div>大 単価</div><div></div></div>
+    <div id="shopList"></div>
+    <button class="addshop" id="addShop">＋ 弁当屋を追加</button>
+    <p class="note">※ 削除・変更しても過去の注文数量は残ります。単価を変えると発注金額の計算に反映されます。</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== 祝日（2025-2027） ===== */
+const HOLIDAYS = new Set([
+ "2025-1-1","2025-1-13","2025-2-11","2025-2-23","2025-2-24","2025-3-20","2025-4-29",
+ "2025-5-3","2025-5-4","2025-5-5","2025-5-6","2025-7-21","2025-8-11","2025-9-15",
+ "2025-9-22","2025-9-23","2025-10-13","2025-11-3","2025-11-23","2025-11-24","2025-12-23",
+ "2026-1-1","2026-1-12","2026-2-11","2026-2-23","2026-3-20","2026-4-29","2026-5-3",
+ "2026-5-4","2026-5-5","2026-5-6","2026-7-20","2026-8-11","2026-9-21","2026-9-23",
+ "2026-10-12","2026-11-3","2026-11-23",
+ "2027-1-1","2027-1-11","2027-2-11","2027-2-23","2027-3-21","2027-3-22","2027-4-29",
+ "2027-5-3","2027-5-4","2027-5-5","2027-7-19","2027-8-11","2027-9-20","2027-9-23",
+ "2027-9-24","2027-10-11","2027-11-3","2027-11-23"
+]);
+const STAFF = ["あかね","ゆいちゃん","あかね・ゆいちゃん"];
+const DOW = ["日","月","火","水","木","金","土"];
+
+const isHoliday = (y,m,d)=>HOLIDAYS.has(`${y}-${m}-${d}`);
+const isBiz = (y,m,d)=>{const w=new Date(y,m-1,d).getDay();return w!==0&&w!==6&&!isHoliday(y,m,d);};
+const yen = n=>"¥"+(n||0).toLocaleString("ja-JP");
+
+/* ===== データ ===== */
+const KEY="bento.data.v1";
+const defaultData=()=>({shops:[{name:"A弁当屋",nami:450,dai:550},{name:"B弁当屋",nami:480,dai:580}],orders:{}});
+let data=load();
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.shops)return d;}catch(e){}return defaultData();}
+function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+
+/* 状態 */
+let cur=new Date();
+let year=cur.getFullYear(), month=cur.getMonth()+1;
+let view="in";          // in=社内用 / out=弁当屋用
+let readonly=false;     // 共有リンクで開いたとき
+let shared=null;        // 共有データ
+
+/* ===== 共有リンク（読み取り専用） ===== */
+function checkShared(){
+  if(!location.hash.startsWith("#s="))return false;
+  try{
+    const json=decodeURIComponent(escape(atob(location.hash.slice(3))));
+    shared=JSON.parse(json);
+    readonly=true; view="out";
+    year=shared.y; month=shared.m;
+    return true;
+  }catch(e){return false;}
+}
+
+function monthKey(){return `${year}-${month}`;}
+function order(){ // 現在月の注文オブジェクト
+  if(readonly)return shared.days||{};
+  const k=monthKey();
+  if(!data.orders[k])data.orders[k]={shop:(data.shops[0]?.name||""),days:{}};
+  return data.orders[k].days;
+}
+function curShopName(){
+  if(readonly)return shared.shop||"";
+  return data.orders[monthKey()]?.shop || (data.shops[0]?.name||"");
+}
+function curShop(){return data.shops.find(s=>s.name===curShopName());}
+
+/* ===== 描画 ===== */
+function renderMonthLabel(){document.getElementById("monthLabel").textContent=`${year}年 ${month}月`;}
+function renderShopSelect(){
+  const sel=document.getElementById("shopSel");
+  sel.innerHTML="";
+  data.shops.forEach(s=>{
+    const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sel.appendChild(o);
+  });
+  sel.value=curShopName();
+  sel.disabled=readonly;
+}
+function renderDow(){
+  const row=document.getElementById("dowRow");row.innerHTML="";
+  DOW.forEach((d,i)=>{
+    const el=document.createElement("div");
+    el.className="dow"+(i===0?" s0":i===6?" s6":"");
+    el.textContent=d;row.appendChild(el);
+  });
+}
+function renderCalendar(){
+  const grid=document.getElementById("calGrid");grid.innerHTML="";
+  const first=new Date(year,month-1,1).getDay();
+  const days=new Date(year,month,0).getDate();
+  for(let i=0;i<first;i++){const e=document.createElement("div");e.className="cell empty";grid.appendChild(e);}
+  const ord=order();
+  for(let d=1;d<=days;d++){
+    const w=new Date(year,month-1,d).getDay();
+    const biz=isBiz(year,month,d);
+    const cell=document.createElement("div");
+    cell.className="cell"+(w===0?" sun":w===6?" sat":"")+(biz?"":" off")+((readonly||view==="out")?" ro":"");
+    const dn=document.createElement("div");dn.className="dnum";dn.textContent=`${d}（${DOW[w]}）`;
+    cell.appendChild(dn);
+    if(biz){
+      const rec=ord[d]||{n:0,d:0,s:""};
+      cell.appendChild(qInput("並",rec.n,d,"n"));
+      cell.appendChild(qInput("大",rec.d,d,"d"));
+      if(view==="in"&&!readonly)cell.appendChild(staffPick(rec.s,d));
+      else if(rec.s){const sp=staffView(rec.s);cell.appendChild(sp);}
+    }
+    grid.appendChild(cell);
+  }
+  renderTotals();
+}
+function qInput(tag,val,day,field){
+  const row=document.createElement("div");row.className="qrow";
+  const t=document.createElement("span");t.className="tag";t.textContent=tag;row.appendChild(t);
+  const inp=document.createElement("input");
+  inp.type="number";inp.min=0;inp.inputMode="numeric";inp.value=val||0;
+  if(readonly||view==="out"){inp.readOnly=true;}
+  inp.addEventListener("focus",()=>{if(inp.value==="0")inp.value="";});
+  inp.addEventListener("change",()=>{
+    const ord=order();if(!ord[day])ord[day]={n:0,d:0,s:""};
+    ord[day][field]=parseInt(inp.value||"0",10)||0;
+    inp.value=ord[day][field];save();renderTotals();
+  });
+  row.appendChild(inp);return row;
+}
+function staffClass(s){return s==="あかね"?"akane":s==="ゆいちゃん"?"yui":s?"both":"";}
+function staffPick(val,day){
+  const sel=document.createElement("select");
+  sel.className="staff set "+staffClass(val);
+  sel.style.appearance="none";
+  const blank=document.createElement("option");blank.value="";blank.textContent="担当 −";sel.appendChild(blank);
+  STAFF.forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=s;sel.appendChild(o);});
+  sel.value=val||"";
+  if(!val)sel.className="staff";
+  sel.addEventListener("change",()=>{
+    const ord=order();if(!ord[day])ord[day]={n:0,d:0,s:""};
+    ord[day].s=sel.value;save();
+    sel.className=(sel.value?"staff set ":"staff ")+staffClass(sel.value);
+  });
+  return sel;
+}
+function staffView(s){
+  const el=document.createElement("div");
+  el.className="staff set "+staffClass(s);el.textContent=s;return el;
+}
+function renderTotals(){
+  const ord=order();let n=0,d=0;
+  Object.values(ord).forEach(r=>{n+=(+r.n||0);d+=(+r.d||0);});
+  document.getElementById("tNami").textContent=n;
+  document.getElementById("tDai").textContent=d;
+  document.getElementById("tQty").textContent=n+d;
+  let money=0;
+  if(readonly){money=(shared.priceN||0)*n+(shared.priceD||0)*d;}
+  else{const sh=curShop();if(sh)money=sh.nami*n+sh.dai*d;}
+  document.getElementById("tMoney").textContent=yen(money);
+  // 弁当屋用 / 共有時は金額カードを隠す（社内情報のため）
+  document.getElementById("moneyCard").style.display=(view==="out")?"none":"";
+}
+
+/* ===== 価格マスタ モーダル ===== */
+function renderShopList(){
+  const box=document.getElementById("shopList");box.innerHTML="";
+  data.shops.forEach((s,i)=>{
+    const row=document.createElement("div");row.className="shop-row";
+    const nm=document.createElement("input");nm.value=s.name;nm.placeholder="弁当屋名";
+    nm.addEventListener("input",()=>{s.name=nm.value;save();});
+    const na=document.createElement("input");na.type="number";na.value=s.nami;na.min=0;
+    na.addEventListener("input",()=>{s.nami=+na.value||0;save();});
+    const da=document.createElement("input");da.type="number";da.value=s.dai;da.min=0;
+    da.addEventListener("input",()=>{s.dai=+da.value||0;save();});
+    const del=document.createElement("button");del.className="del";del.textContent="🗑";
+    del.addEventListener("click",()=>{
+      if(data.shops.length<=1){toast("最低1件は必要です");return;}
+      data.shops.splice(i,1);save();renderShopList();renderShopSelect();renderTotals();
+    });
+    row.append(nm,na,da,del);box.appendChild(row);
+  });
+}
+
+/* ===== ユーティリティ ===== */
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1800);}
+
+function applyReadonlyUI(){
+  document.getElementById("btnShops").style.display="none";
+  document.querySelector(".controls").style.display="none";
+  document.getElementById("btnShare").style.display="none";
+  document.getElementById("btnExport").style.display="none";
+  document.getElementById("btnImport").style.display="none";
+  document.getElementById("roBadge").style.display="";
+  document.getElementById("roBadgeText").textContent=`${shared.shop} 様　${year}年${month}月 ご注文`;
+  document.getElementById("footNote").textContent="これは共有された注文内容です（閲覧専用）。印刷してご利用いただけます。";
+}
+
+/* ===== イベント ===== */
+function shiftMonth(delta){
+  month+=delta;if(month<1){month=12;year--;}if(month>12){month=1;year++;}
+  renderMonthLabel();renderShopSelect();renderCalendar();
+}
+document.getElementById("prevM").onclick=()=>shiftMonth(-1);
+document.getElementById("nextM").onclick=()=>shiftMonth(1);
+document.getElementById("shopSel").onchange=e=>{
+  const k=monthKey();if(!data.orders[k])data.orders[k]={shop:e.target.value,days:{}};
+  data.orders[k].shop=e.target.value;save();renderTotals();
+};
+document.getElementById("viewSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  view=b.dataset.v;
+  document.querySelectorAll("#viewSeg button").forEach(x=>x.classList.toggle("on",x===b));
+  renderCalendar();
+});
+document.getElementById("btnShops").onclick=()=>{renderShopList();document.getElementById("shopModal").classList.add("open");};
+document.getElementById("closeShops").onclick=()=>{document.getElementById("shopModal").classList.remove("open");renderShopSelect();renderTotals();};
+document.getElementById("addShop").onclick=()=>{data.shops.push({name:"",nami:0,dai:0});save();renderShopList();renderShopSelect();};
+document.getElementById("shopModal").addEventListener("click",e=>{if(e.target.id==="shopModal")document.getElementById("closeShops").click();});
+
+document.getElementById("btnPrint").onclick=()=>window.print();
+
+document.getElementById("btnShare").onclick=()=>{
+  const sh=curShop()||{nami:0,dai:0};
+  const payload={y:year,m:month,shop:curShopName(),priceN:sh.nami,priceD:sh.dai,days:order()};
+  const code=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const url=location.origin+location.pathname+"#s="+code;
+  navigator.clipboard?.writeText(url).then(
+    ()=>toast("共有リンクをコピーしました"),
+    ()=>prompt("このリンクを弁当屋へ送ってください",url)
+  );
+};
+
+document.getElementById("btnExport").onclick=()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`お弁当注文_バックアップ_${year}${String(month).padStart(2,"0")}.json`;a.click();
+  toast("バックアップを保存しました");
+};
+document.getElementById("btnImport").onclick=()=>document.getElementById("fileImport").click();
+document.getElementById("fileImport").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.shops&&d.orders){data=d;save();
+    renderShopSelect();renderCalendar();toast("読み込みました");}else toast("形式が違います");}
+    catch(err){toast("読み込めませんでした");}};
+  r.readAsText(f);
+};
+
+/* ===== 起動 ===== */
+function init(){
+  if(checkShared()){applyReadonlyUI();}
+  renderMonthLabel();renderDow();renderShopSelect();renderCalendar();
+}
+init();
+</script>
+</body>
+</html>
