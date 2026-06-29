@@ -288,6 +288,9 @@ document.addEventListener("focusout",()=>{
 /* 状態 */
 let cur=new Date();
 let year=cur.getFullYear(), month=cur.getMonth()+1;
+const VKEY="bento.view";
+function saveView(){try{localStorage.setItem(VKEY,JSON.stringify({y:year,m:month}));}catch(e){}}
+function restoreView(){try{const v=JSON.parse(localStorage.getItem(VKEY));if(v&&v.y&&v.m){year=v.y;month=v.m;}}catch(e){}}
 let view="in";          // in=社内用 / out=弁当屋用
 let readonly=false;     // 共有リンクで開いたとき
 let shared=null;        // 共有データ
@@ -447,6 +450,7 @@ function applyReadonlyUI(){
 /* ===== イベント ===== */
 function shiftMonth(delta){
   month+=delta;if(month<1){month=12;year--;}if(month>12){month=1;year++;}
+  saveView();
   renderMonthLabel();renderShopSelect();renderCalendar();
 }
 document.getElementById("prevM").onclick=()=>shiftMonth(-1);
@@ -497,6 +501,7 @@ document.getElementById("fileImport").onchange=e=>{
 /* ===== 起動 ===== */
 function init(){
   if(checkShared()){applyReadonlyUI();}
+  else{restoreView();}
   renderMonthLabel();renderDow();renderShopSelect();renderCalendar();
 }
 init();
