@@ -283,7 +283,8 @@ const STAFF = ["あかね","ゆいちゃん","あかね・ゆいちゃん"];
 const DOW = ["日","月","火","水","木","金","土"];
 
 const isHoliday = (y,m,d)=>HOLIDAYS.has(`${y}-${m}-${d}`);
-const isBiz = (y,m,d)=>{const w=new Date(y,m-1,d).getDay();return w!==0&&w!==6&&!isHoliday(y,m,d);};
+// 営業日：日曜と祝日のみ休み（土曜は営業）
+const isBiz = (y,m,d)=>{const w=new Date(y,m-1,d).getDay();return w!==0&&!isHoliday(y,m,d);};
 const yen = n=>"¥"+(n||0).toLocaleString("ja-JP");
 
 /* ===== データ ===== */
