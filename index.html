@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#2B4C6F">
 <title>お弁当注文カレンダー</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="お弁当注文">
 <style>
   :root{
     --navy:#2B4C6F; --navy-d:#1f3a55; --band:#EAF2F8; --line:#d4dde6;
@@ -532,6 +539,11 @@ function init(){
   renderMonthLabel();renderDow();renderShopSelect();renderCalendar();
 }
 init();
+
+// アプリ化（Service Worker登録）
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
 </script>
 
 <!-- ===== Firebase クラウド同期 ===== -->
