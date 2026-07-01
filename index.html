@@ -126,6 +126,26 @@
   .modal .close{float:right;border:none;background:#eef2f6;border-radius:10px;width:34px;height:34px;
     font-size:18px;cursor:pointer;color:#667}
   .note{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6}
+  /* ロックバー・追加ボタン */
+  #lockBar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .badge.lock{background:#FFF0D6;color:#8A6D00}
+  .mini{border:1px solid var(--navy);background:#fff;color:var(--navy);border-radius:20px;
+    padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer}
+  .mini:active{background:var(--band)}
+  .btn.danger{color:#c0392b;border-color:#f0c4c4}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .dnum.clickable{cursor:pointer}
+  .dnum.clickable:hover{text-decoration:underline}
+  /* 集計モーダル */
+  .rep-h{font-size:13px;color:var(--navy);margin:14px 0 6px;border-bottom:2px solid var(--band);padding-bottom:3px}
+  .rep-grid{display:flex;gap:8px;flex-wrap:wrap}
+  .rep-grid>div{flex:1 1 calc(50% - 8px);background:var(--band);border-radius:10px;padding:8px;text-align:center}
+  .rep-grid span{display:block;font-size:11px;color:var(--muted)}
+  .rep-grid b{font-size:18px;color:var(--navy)}
+  .rep-t{width:100%;border-collapse:collapse;font-size:13px}
+  .rep-t th{background:var(--navy);color:#fff;padding:6px;text-align:left;font-weight:700}
+  .rep-t td{padding:6px;border-bottom:1px solid #eef2f6}
+  .rep-t tr:nth-child(even) td{background:#f8fafc}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#243240;color:#fff;
     padding:10px 18px;border-radius:24px;font-size:13px;opacity:0;transition:.3s;z-index:99;pointer-events:none}
   .toast.show{opacity:1}
@@ -232,6 +252,11 @@
 
   <div id="roBadge" style="display:none"><span class="badge" id="roBadgeText">弁当屋用（共有された注文）</span></div>
 
+  <div id="lockBar" style="display:none">
+    <span class="badge lock" id="lockLabel">🔒 確定済み（過去の月）</span>
+    <button class="mini" id="btnUnlock">✏️ 編集する</button>
+  </div>
+
   <div class="totals">
     <div class="tcard"><div class="lbl">並 合計</div><div class="val" id="tNami">0</div></div>
     <div class="tcard"><div class="lbl">大 合計</div><div class="val" id="tDai">0</div></div>
@@ -245,10 +270,13 @@
   </div>
 
   <div class="actions">
+    <button class="btn ghost" id="btnDefaults">📋 定番入力</button>
+    <button class="btn ghost" id="btnReport">📊 集計</button>
     <button class="btn primary" id="btnShare">📤 弁当屋へ共有リンク</button>
     <button class="btn ghost" id="btnPrint">🖨 印刷</button>
     <button class="btn ghost" id="btnExport">💾 バックアップ保存</button>
     <button class="btn ghost" id="btnImport">📂 バックアップ読込</button>
+    <button class="btn ghost danger" id="btnReset">🗑 今月をリセット</button>
     <input type="file" id="fileImport" accept="application/json" style="display:none">
   </div>
 
@@ -271,34 +299,86 @@
   </div>
 </div>
 
+<!-- 定番パターン モーダル -->
+<div class="modal" id="defModal">
+  <div class="sheet">
+    <button class="close" id="closeDef">×</button>
+    <h2>定番パターン</h2>
+    <p class="sub">曜日ごとの「いつもの数」を登録し、ボタンで今月の空いている営業日へ一括入力できます。</p>
+    <div class="shop-row head" style="grid-template-columns:1fr 80px 80px 34px"><div>曜日</div><div>並</div><div>大</div><div></div></div>
+    <div id="defList"></div>
+    <button class="btn primary" id="applyDef" style="margin-top:12px;width:100%">📋 今月の空き営業日に定番を入力</button>
+    <p class="note">※ すでに数が入っている日は上書きしません。日曜・祝日・休みの日には入りません。</p>
+  </div>
+</div>
+
+<!-- 集計 モーダル -->
+<div class="modal" id="repModal">
+  <div class="sheet">
+    <button class="close" id="closeRep">×</button>
+    <h2>集計</h2>
+    <div id="repBody"></div>
+    <button class="btn ghost" id="repCsv" style="margin-top:12px;width:100%">💾 月別集計をCSVで保存</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-/* ===== 祝日（2025-2027） ===== */
-const HOLIDAYS = new Set([
- "2025-1-1","2025-1-13","2025-2-11","2025-2-23","2025-2-24","2025-3-20","2025-4-29",
- "2025-5-3","2025-5-4","2025-5-5","2025-5-6","2025-7-21","2025-8-11","2025-9-15",
- "2025-9-22","2025-9-23","2025-10-13","2025-11-3","2025-11-23","2025-11-24","2025-12-23",
- "2026-1-1","2026-1-12","2026-2-11","2026-2-23","2026-3-20","2026-4-29","2026-5-3",
- "2026-5-4","2026-5-5","2026-5-6","2026-7-20","2026-8-11","2026-9-21","2026-9-23",
- "2026-10-12","2026-11-3","2026-11-23",
- "2027-1-1","2027-1-11","2027-2-11","2027-2-23","2027-3-21","2027-3-22","2027-4-29",
- "2027-5-3","2027-5-4","2027-5-5","2027-7-19","2027-8-11","2027-9-20","2027-9-23",
- "2027-9-24","2027-10-11","2027-11-3","2027-11-23"
-]);
-const STAFF = ["あかね","ゆいちゃん","あかね・ゆいちゃん"];
-const DOW = ["日","月","火","水","木","金","土"];
-
-const isHoliday = (y,m,d)=>HOLIDAYS.has(`${y}-${m}-${d}`);
-// 営業日：日曜と祝日のみ休み（土曜は営業）
-const isBiz = (y,m,d)=>{const w=new Date(y,m-1,d).getDay();return w!==0&&!isHoliday(y,m,d);};
+/* ===== 祝日（日本の祝日を自動計算：2028年以降も対応） ===== */
+const _holCache={};
+function jpHolidays(year){
+  if(_holCache[year])return _holCache[year];
+  const S=new Set();
+  const k=(m,d)=>`${year}-${m}-${d}`;
+  const has=(m,d)=>S.has(`${year}-${m}-${d}`);
+  const hasDate=(dt)=>S.has(`${dt.getFullYear()}-${dt.getMonth()+1}-${dt.getDate()}`);
+  const nthMon=(month,n)=>{const f=new Date(year,month-1,1).getDay();return 1+((8-f)%7)+(n-1)*7;};
+  // 固定祝日
+  [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]].forEach(([m,d])=>S.add(k(m,d)));
+  // ハッピーマンデー
+  S.add(k(1,nthMon(1,2)));    // 成人の日（1月第2月曜）
+  S.add(k(7,nthMon(7,3)));    // 海の日（7月第3月曜）
+  S.add(k(9,nthMon(9,3)));    // 敬老の日（9月第3月曜）
+  S.add(k(10,nthMon(10,2)));  // スポーツの日（10月第2月曜）
+  // 春分・秋分（1980-2099有効の近似式）
+  S.add(k(3,Math.floor(20.8431+0.242194*(year-1980)-Math.floor((year-1980)/4))));
+  S.add(k(9,Math.floor(23.2488+0.242194*(year-1980)-Math.floor((year-1980)/4))));
+  // 国民の休日（祝日に挟まれた平日）
+  for(let m=1;m<=12;m++){const dim=new Date(year,m,0).getDate();
+    for(let d=1;d<=dim;d++){const w=new Date(year,m-1,d).getDay();
+      if(w!==0&&!has(m,d)&&hasDate(new Date(year,m-1,d-1))&&hasDate(new Date(year,m-1,d+1)))S.add(k(m,d));}}
+  // 振替休日（日曜が祝日→次の非祝日を休日に）
+  const subs=[];
+  for(let m=1;m<=12;m++){const dim=new Date(year,m,0).getDate();
+    for(let d=1;d<=dim;d++){
+      if(has(m,d)&&new Date(year,m-1,d).getDay()===0){
+        let nd=new Date(year,m-1,d+1);
+        while(hasDate(nd))nd=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate()+1);
+        subs.push(`${nd.getFullYear()}-${nd.getMonth()+1}-${nd.getDate()}`);
+      }}}
+  subs.forEach(x=>S.add(x));
+  _holCache[year]=S;return S;
+}
+const isHoliday=(y,m,d)=>jpHolidays(y).has(`${y}-${m}-${d}`);
+const STAFF=["あかね","ゆいちゃん","あかね・ゆいちゃん"];
+const DOW=["日","月","火","水","木","金","土"];
+// 営業日：日曜と祝日は休み（土曜は営業）。data.overridesで日ごとに上書き可
+function naturallyBiz(y,m,d){const w=new Date(y,m-1,d).getDay();return w!==0&&!isHoliday(y,m,d);}
+function isBiz(y,m,d){
+  const ov=(typeof data!=="undefined"&&data&&data.overrides)?data.overrides[`${y}-${m}-${d}`]:undefined;
+  if(ov==="open")return true;
+  if(ov==="closed")return false;
+  return naturallyBiz(y,m,d);
+}
 const yen = n=>"¥"+(n||0).toLocaleString("ja-JP");
 
 /* ===== データ ===== */
 const KEY="bento.data.v1";
-const defaultData=()=>({shops:[{name:"A弁当屋",nami:450,dai:550},{name:"B弁当屋",nami:480,dai:580}],orders:{}});
+const defaultData=()=>({shops:[{name:"A弁当屋",nami:450,dai:550},{name:"B弁当屋",nami:480,dai:580}],orders:{},defaults:{},overrides:{}});
+function ensureFields(d){d.orders=d.orders||{};d.defaults=d.defaults||{};d.overrides=d.overrides||{};return d;}
 let data=load();
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.shops)return d;}catch(e){}return defaultData();}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.shops)return ensureFields(d);}catch(e){}return defaultData();}
 function saveLocal(){localStorage.setItem(KEY,JSON.stringify(data));}
 function save(){saveLocal();if(!readonly&&window.cloudPush)window.cloudPush(data);}
 
@@ -308,7 +388,7 @@ window.getLocalData=()=>data;
 window.applyRemote=function(remote){
   if(readonly)return;
   if(JSON.stringify(remote)===JSON.stringify(data))return; // 自分の変更のエコーは無視
-  data=remote;saveLocal();
+  data=ensureFields(remote);saveLocal();
   const ae=document.activeElement;
   if(ae&&ae.tagName==="INPUT"&&ae.closest(".cal")){pendingRender=true;return;} // 入力中は再描画を保留
   renderShopSelect();renderCalendar();
@@ -326,6 +406,9 @@ function restoreView(){try{const v=JSON.parse(localStorage.getItem(VKEY));if(v&&
 let view="in";          // in=社内用 / out=弁当屋用
 let readonly=false;     // 共有リンクで開いたとき
 let shared=null;        // 共有データ
+const unlocked=new Set();// セッション内で解除した過去月
+function isPastMonth(){const t=new Date();const ty=t.getFullYear(),tm=t.getMonth()+1;return year<ty||(year===ty&&month<tm);}
+function isLocked(){return !readonly&&isPastMonth()&&!unlocked.has(monthKey());}
 
 /* ===== 共有リンク（読み取り専用） ===== */
 function checkShared(){
@@ -361,7 +444,7 @@ function renderShopSelect(){
     const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sel.appendChild(o);
   });
   sel.value=curShopName();
-  sel.disabled=readonly;
+  sel.disabled=readonly||isLocked();
 }
 function renderDow(){
   const row=document.getElementById("dowRow");row.innerHTML="";
@@ -373,6 +456,8 @@ function renderDow(){
 }
 function renderCalendar(){
   const grid=document.getElementById("calGrid");grid.innerHTML="";
+  const locked=isLocked();
+  const editable=!readonly&&view==="in"&&!locked;
   const first=new Date(year,month-1,1).getDay();
   const days=new Date(year,month,0).getDate();
   for(let i=0;i<first;i++){const e=document.createElement("div");e.className="cell empty";grid.appendChild(e);}
@@ -381,19 +466,24 @@ function renderCalendar(){
     const w=new Date(year,month-1,d).getDay();
     const biz=isBiz(year,month,d);
     const cell=document.createElement("div");
-    cell.className="cell"+(w===0?" sun":w===6?" sat":"")+(biz?"":" off")+((readonly||view==="out")?" ro":"");
+    cell.className="cell"+(w===0?" sun":w===6?" sat":"")+(biz?"":" off")+((readonly||view==="out"||locked)?" ro":"");
     const dn=document.createElement("div");dn.className="dnum";dn.textContent=`${d}（${DOW[w]}）`;
+    if(editable){dn.classList.add("clickable");dn.title="クリックで営業日／休みを切替";dn.onclick=()=>toggleDay(d);}
     cell.appendChild(dn);
     if(biz){
       const rec=ord[d]||{n:0,d:0,s:""};
-      cell.appendChild(qInput("並",rec.n,d,"n"));
-      cell.appendChild(qInput("大",rec.d,d,"d"));
+      cell.appendChild(qInput("並",rec.n,d,"n",locked));
+      cell.appendChild(qInput("大",rec.d,d,"d",locked));
       // スタッフ名は「社内用」のときだけ表示（弁当屋用・共有リンクには出さない）
-      if(view==="in"&&!readonly)cell.appendChild(staffPick(rec.s,d));
+      if(view==="in"&&!readonly){
+        if(locked){ if(rec.s)cell.appendChild(staffBadge(rec.s)); }
+        else cell.appendChild(staffPick(rec.s,d));
+      }
     }
     grid.appendChild(cell);
   }
   renderTotals();
+  renderLockBadge(locked);
   // 印刷用の見出し
   const ph=document.getElementById("printHead");
   if(ph){
@@ -401,12 +491,32 @@ function renderCalendar(){
     ph.textContent=`${year}年${month}月　お弁当注文カレンダー（${v}）　発注先：${curShopName()}`;
   }
 }
-function qInput(tag,val,day,field){
+function renderLockBadge(locked){
+  const bar=document.getElementById("lockBar");
+  if(bar)bar.style.display=(locked||(isPastMonth()&&!readonly))?"":"none";
+  const unlockBtn=document.getElementById("btnUnlock");
+  if(unlockBtn)unlockBtn.style.display=locked?"":"none";
+  const lbl=document.getElementById("lockLabel");
+  if(lbl)lbl.textContent=locked?"🔒 確定済み（過去の月）":"✏️ 編集中（過去の月）";
+  ["btnDefaults","btnReset"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=locked;});
+}
+function toggleDay(d){
+  const key=`${year}-${month}-${d}`;
+  const nat=naturallyBiz(year,month,d);
+  const nowBiz=isBiz(year,month,d);
+  const desired=!nowBiz;
+  if(!confirm(`${month}月${d}日 を「${desired?"営業日":"休み"}」にしますか？`))return;
+  if(!data.overrides)data.overrides={};
+  if(desired===nat)delete data.overrides[key];
+  else data.overrides[key]=desired?"open":"closed";
+  save();renderCalendar();
+}
+function qInput(tag,val,day,field,locked){
   const row=document.createElement("div");row.className="qrow";
   const t=document.createElement("span");t.className="tag";t.textContent=tag;row.appendChild(t);
   const inp=document.createElement("input");
   inp.type="number";inp.min=0;inp.inputMode="numeric";inp.value=val||0;
-  if(readonly||view==="out"){inp.readOnly=true;}
+  if(readonly||view==="out"||locked){inp.readOnly=true;}
   inp.addEventListener("focus",()=>{if(inp.value==="0")inp.value="";});
   inp.addEventListener("change",()=>{
     const ord=order();if(!ord[day])ord[day]={n:0,d:0,s:""};
@@ -416,6 +526,7 @@ function qInput(tag,val,day,field){
   row.appendChild(inp);return row;
 }
 function staffClass(s){return s==="あかね"?"akane":s==="ゆいちゃん"?"yui":s?"both":"";}
+function staffBadge(s){const el=document.createElement("div");el.className="staff set "+staffClass(s);el.textContent=s;return el;}
 function staffPick(val,day){
   const sel=document.createElement("select");
   sel.className="staff set "+staffClass(val);
@@ -465,6 +576,84 @@ function renderShopList(){
   });
 }
 
+/* ===== 定番パターン ===== */
+function renderDefList(){
+  const box=document.getElementById("defList");box.innerHTML="";
+  [1,2,3,4,5,6].forEach(wd=>{
+    const def=(data.defaults&&data.defaults[wd])||{n:0,d:0};
+    const row=document.createElement("div");row.className="shop-row";
+    row.style.gridTemplateColumns="1fr 80px 80px 34px";
+    const lab=document.createElement("div");lab.textContent=DOW[wd]+"曜";lab.style.fontWeight="700";
+    const na=document.createElement("input");na.type="number";na.min=0;na.value=def.n||0;
+    na.addEventListener("input",()=>{if(!data.defaults)data.defaults={};data.defaults[wd]=data.defaults[wd]||{n:0,d:0};data.defaults[wd].n=+na.value||0;save();});
+    const da=document.createElement("input");da.type="number";da.min=0;da.value=def.d||0;
+    da.addEventListener("input",()=>{if(!data.defaults)data.defaults={};data.defaults[wd]=data.defaults[wd]||{n:0,d:0};data.defaults[wd].d=+da.value||0;save();});
+    row.append(lab,na,da,document.createElement("div"));box.appendChild(row);
+  });
+}
+function applyDefaults(){
+  if(isLocked()){toast("過去の月はロック中です");return;}
+  const days=new Date(year,month,0).getDate();const ord=order();let cnt=0;
+  for(let d=1;d<=days;d++){
+    if(!isBiz(year,month,d))continue;
+    const wd=new Date(year,month-1,d).getDay();if(wd===0)continue;
+    const def=(data.defaults&&data.defaults[wd])||{n:0,d:0};
+    if(!def.n&&!def.d)continue;
+    const rec=ord[d];
+    if(rec&&((+rec.n||0)||(+rec.d||0)))continue; // 既に入力済みはスキップ
+    ord[d]={n:def.n||0,d:def.d||0,s:rec?rec.s:""};cnt++;
+  }
+  save();renderCalendar();toast(`${cnt}日に定番を入力しました`);
+}
+
+/* ===== 集計 ===== */
+function shopFor(k){const nm=data.orders[k]?.shop||data.shops[0]?.name;return data.shops.find(s=>s.name===nm)||{nami:0,dai:0,name:nm||""};}
+function monthSummary(k){
+  const days=data.orders[k]?.days||{};let n=0,d=0;
+  Object.values(days).forEach(r=>{n+=(+r.n||0);d+=(+r.d||0);});
+  const sh=shopFor(k);return {n,d,qty:n+d,money:n*sh.nami+d*sh.dai,shop:sh.name};
+}
+function sortedMonthKeys(){return Object.keys(data.orders).sort((a,b)=>{const[ay,am]=a.split("-").map(Number);const[by,bm]=b.split("-").map(Number);return ay-by||am-bm;});}
+function renderReport(){
+  const cm=monthSummary(monthKey());
+  const days=order();const sc={};
+  Object.values(days).forEach(r=>{if(r.s){if(r.s.includes("あかね"))sc["あかね"]=(sc["あかね"]||0)+1;if(r.s.includes("ゆいちゃん"))sc["ゆいちゃん"]=(sc["ゆいちゃん"]||0)+1;}});
+  const keys=sortedMonthKeys();
+  const byShop={};keys.forEach(k=>{const s=monthSummary(k);byShop[s.shop]=(byShop[s.shop]||0)+s.money;});
+  let h="";
+  h+=`<h3 class="rep-h">${year}年${month}月</h3><div class="rep-grid">
+    <div><span>並 合計</span><b>${cm.n}</b></div><div><span>大 合計</span><b>${cm.d}</b></div>
+    <div><span>個数 計</span><b>${cm.qty}</b></div><div><span>発注金額</span><b>${yen(cm.money)}</b></div></div>`;
+  h+=`<h3 class="rep-h">スタッフ出勤日数（今月）</h3><table class="rep-t"><tr><th>スタッフ</th><th>日数</th></tr>`;
+  ["あかね","ゆいちゃん"].forEach(nm=>{h+=`<tr><td>${nm}</td><td>${sc[nm]||0} 日</td></tr>`;});
+  h+=`</table>`;
+  h+=`<h3 class="rep-h">月別 発注金額</h3><table class="rep-t"><tr><th>月</th><th>弁当屋</th><th>個数</th><th>金額</th></tr>`;
+  keys.forEach(k=>{const s=monthSummary(k);const[yy,mm]=k.split("-");h+=`<tr><td>${yy}/${mm}</td><td>${s.shop||"-"}</td><td>${s.qty}</td><td>${yen(s.money)}</td></tr>`;});
+  if(!keys.length)h+=`<tr><td colspan="4">データがありません</td></tr>`;
+  h+=`</table>`;
+  h+=`<h3 class="rep-h">弁当屋別 合計（全期間）</h3><table class="rep-t"><tr><th>弁当屋</th><th>金額</th></tr>`;
+  Object.keys(byShop).forEach(nm=>{h+=`<tr><td>${nm||"-"}</td><td>${yen(byShop[nm])}</td></tr>`;});
+  h+=`</table>`;
+  document.getElementById("repBody").innerHTML=h;
+}
+function reportCsv(){
+  const keys=sortedMonthKeys();
+  let csv="年月,弁当屋,並,大,個数,発注金額\n";
+  keys.forEach(k=>{const s=monthSummary(k);const[yy,mm]=k.split("-");csv+=`${yy}/${mm},${s.shop||""},${s.n},${s.d},${s.qty},${s.money}\n`;});
+  const blob=new Blob(["﻿"+csv],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`お弁当_集計_${year}${String(month).padStart(2,"0")}.csv`;a.click();
+  toast("集計CSVを保存しました");
+}
+
+/* ===== 今月リセット ===== */
+function resetMonth(){
+  if(isLocked()){toast("過去の月はロック中です");return;}
+  if(!confirm(`${year}年${month}月 の入力内容をすべて消します。よろしいですか？`))return;
+  const k=monthKey();if(data.orders[k])data.orders[k].days={};
+  save();renderCalendar();toast("今月の入力をリセットしました");
+}
+
 /* ===== ユーティリティ ===== */
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1800);}
@@ -476,6 +665,7 @@ function applyReadonlyUI(){
   document.getElementById("btnShare").style.display="none";
   document.getElementById("btnExport").style.display="none";
   document.getElementById("btnImport").style.display="none";
+  ["btnDefaults","btnReport","btnReset"].forEach(id=>document.getElementById(id).style.display="none");
   document.getElementById("roBadge").style.display="";
   document.getElementById("roBadgeText").textContent=`${shared.shop} 様　${year}年${month}月 ご注文`;
   document.getElementById("footNote").textContent="これは共有された注文内容です（閲覧専用）。印刷してご利用いただけます。";
@@ -506,6 +696,23 @@ document.getElementById("shopModal").addEventListener("click",e=>{if(e.target.id
 
 document.getElementById("btnPrint").onclick=()=>window.print();
 
+// 定番パターン
+const openM=id=>document.getElementById(id).classList.add("open");
+const closeM=id=>document.getElementById(id).classList.remove("open");
+document.getElementById("btnDefaults").onclick=()=>{renderDefList();openM("defModal");};
+document.getElementById("closeDef").onclick=()=>closeM("defModal");
+document.getElementById("applyDef").onclick=()=>{applyDefaults();closeM("defModal");};
+document.getElementById("defModal").addEventListener("click",e=>{if(e.target.id==="defModal")closeM("defModal");});
+// 集計
+document.getElementById("btnReport").onclick=()=>{renderReport();openM("repModal");};
+document.getElementById("closeRep").onclick=()=>closeM("repModal");
+document.getElementById("repModal").addEventListener("click",e=>{if(e.target.id==="repModal")closeM("repModal");});
+document.getElementById("repCsv").onclick=reportCsv;
+// 今月リセット
+document.getElementById("btnReset").onclick=resetMonth;
+// 過去月ロック解除
+document.getElementById("btnUnlock").onclick=()=>{unlocked.add(monthKey());renderShopSelect();renderCalendar();toast("この画面で編集できます");};
+
 document.getElementById("btnShare").onclick=()=>{
   const sh=curShop()||{nami:0,dai:0};
   const payload={y:year,m:month,shop:curShopName(),priceN:sh.nami,priceD:sh.dai,days:order()};
@@ -526,7 +733,7 @@ document.getElementById("btnExport").onclick=()=>{
 document.getElementById("btnImport").onclick=()=>document.getElementById("fileImport").click();
 document.getElementById("fileImport").onchange=e=>{
   const f=e.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.shops&&d.orders){data=d;save();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.shops&&d.orders){data=ensureFields(d);save();
     renderShopSelect();renderCalendar();toast("読み込みました");}else toast("形式が違います");}
     catch(err){toast("読み込めませんでした");}};
   r.readAsText(f);
